@@ -118,7 +118,7 @@ public class ClientUI
 	private final RuneLiteConfig config;
 	private final EventBus eventBus;
 	private Applet client;
-	private JFrame frame;
+	private ContainableFrame frame;
 	private JPanel navContainer;
 	private PluginPanel pluginPanel;
 	private ClientPluginToolbar pluginToolbar;
@@ -168,6 +168,12 @@ public class ClientUI
 			if (event.getKey().equals("lockWindowSize"))
 			{
 				frame.setResizable(!config.lockWindowSize());
+			}
+
+			if (event.getKey().equals("containInScreen") ||
+				event.getKey().equals("uiEnableCustomChrome"))
+			{
+				frame.setContainedInScreen(config.containInScreen() && config.enableCustomChrome());
 			}
 
 			if (event.getKey().equals("rememberScreenBounds") && event.getNewValue().equals("false"))
@@ -321,7 +327,7 @@ public class ClientUI
 			SwingUtil.setFont(FontManager.getRunescapeFont());
 
 			// Create main window
-			frame = new JFrame();
+			frame = new ContainableFrame();
 
 			// Try to enable fullscreen on OSX
 			OSXUtil.tryEnableFullscreen(frame);
