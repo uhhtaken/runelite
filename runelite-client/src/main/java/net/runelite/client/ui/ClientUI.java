@@ -36,8 +36,11 @@ import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.LayoutManager;
+import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -59,6 +62,7 @@ import net.runelite.api.Point;
 import net.runelite.api.events.ConfigChanged;
 import net.runelite.client.RuneLite;
 import net.runelite.client.RuneLiteProperties;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.RuneLiteConfig;
 import net.runelite.client.events.ClientUILoaded;
 import net.runelite.client.events.PluginToolbarButtonAdded;
@@ -79,6 +83,11 @@ import org.pushingpixels.substance.internal.utils.SubstanceTitlePaneUtilities;
 @Singleton
 public class ClientUI
 {
+	private static final String CONFIG_GROUP = "runelite";
+	private static final String CONFIG_CLIENT_BOUNDS = "clientBounds";
+	private static final String CONFIG_CLIENT_MAXIMIZED = "clientMaximized";
+	private static final int CLIENT_WELL_HIDDEN_MARGIN = 160;
+	private static final int CLIENT_WELL_HIDDEN_MARGIN_TOP = 10;
 	private static final int PANEL_EXPANDED_WIDTH = PluginPanel.PANEL_WIDTH + PluginPanel.SCROLLBAR_WIDTH;
 	public static final BufferedImage ICON;
 
@@ -116,6 +125,9 @@ public class ClientUI
 	private ClientTitleToolbar titleToolbar;
 	private JButton currentButton;
 	private NavigationButton currentNavButton;
+
+	@Inject
+	private ConfigManager configManager;
 
 	@Inject
 	private ClientUI(
@@ -156,6 +168,12 @@ public class ClientUI
 			if (event.getKey().equals("lockWindowSize"))
 			{
 				frame.setResizable(!config.lockWindowSize());
+			}
+
+			if (event.getKey().equals("rememberScreenBounds") && event.getNewValue().equals("false"))
+			{
+				configManager.unsetConfiguration(CONFIG_GROUP, CONFIG_CLIENT_MAXIMIZED);
+				configManager.unsetConfiguration(CONFIG_GROUP, CONFIG_CLIENT_BOUNDS);
 			}
 
 			if (!event.getKey().equals("gameSize"))
@@ -313,6 +331,18 @@ public class ClientUI
 			frame.getLayeredPane().setCursor(Cursor.getDefaultCursor()); // Prevent substance from using a resize cursor for pointing
 			frame.setLocationRelativeTo(frame.getOwner());
 			frame.setResizable(true);
+			frame.addWindowListener(new WindowAdapter()
+			{
+				@Override
+				public void windowClosing(WindowEvent e)
+				{
+					super.windowClosing(e);
+					if (config.rememberScreenBounds())
+					{
+						saveClientBoundsConfig();
+					}
+				}
+			});
 
 			SwingUtil.addGracefulExitCallback(frame, runelite::shutdown,
 				() -> client != null
@@ -399,11 +429,53 @@ public class ClientUI
 
 			frame.pack();
 			SwingUtil.revalidateMinimumSize(frame);
-			frame.setLocationRelativeTo(frame.getOwner());
+			if (config.rememberScreenBounds())
+			{
+				try
+				{
+					Rectangle clientBounds = configManager.getConfiguration(
+						CONFIG_GROUP, CONFIG_CLIENT_BOUNDS, Rectangle.class);
+					if (clientBounds != null)
+					{
+						frame.setBounds(clientBounds);
+					}
+					else
+					{
+						frame.setLocationRelativeTo(frame.getOwner());
+					}
+
+					if (configManager.getConfiguration(CONFIG_GROUP, CONFIG_CLIENT_MAXIMIZED) != null)
+					{
+						frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+					}
+				}
+				catch (Exception ex)
+				{
+					log.warn("Failed to set window bounds");
+					frame.setLocationRelativeTo(frame.getOwner());
+				}
+			}
+			else
+			{
+				frame.setLocationRelativeTo(frame.getOwner());
+			}
 			frame.setVisible(true);
 			frame.toFront();
 			requestFocus();
 			giveClientFocus();
+
+			// If the frame is well hidden (e.g. unplugged 2nd screen),
+			// we want to move it back to default position as it can be
+			// hard for the user to reposition it themselves otherwise.
+			Rectangle clientBounds = frame.getBounds();
+			Rectangle screenBounds = frame.getGraphicsConfiguration().getBounds();
+			if (clientBounds.x + clientBounds.width - CLIENT_WELL_HIDDEN_MARGIN < screenBounds.getX() ||
+				clientBounds.x + CLIENT_WELL_HIDDEN_MARGIN > screenBounds.getX() + screenBounds.getWidth() ||
+				clientBounds.y + CLIENT_WELL_HIDDEN_MARGIN_TOP < screenBounds.getY() ||
+				clientBounds.y + CLIENT_WELL_HIDDEN_MARGIN > screenBounds.getY() + screenBounds.getHeight())
+			{
+				frame.setLocationRelativeTo(frame.getOwner());
+			}
 
 			trayIcon = SwingUtil.createTrayIcon(ICON, properties.getTitle(), frame);
 		});
@@ -548,6 +620,19 @@ public class ClientUI
 		else if (client != null)
 		{
 			client.requestFocusInWindow();
+		}
+	}
+
+	private void saveClientBoundsConfig()
+	{
+		if ((frame.getExtendedState() & JFrame.MAXIMIZED_BOTH) != 0)
+		{
+			configManager.setConfiguration(CONFIG_GROUP, CONFIG_CLIENT_MAXIMIZED, true);
+		}
+		else
+		{
+			configManager.unsetConfiguration(CONFIG_GROUP, CONFIG_CLIENT_MAXIMIZED);
+			configManager.setConfiguration(CONFIG_GROUP, CONFIG_CLIENT_BOUNDS, frame.getBounds());
 		}
 	}
 }
