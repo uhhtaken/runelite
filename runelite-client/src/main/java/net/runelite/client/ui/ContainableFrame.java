@@ -25,13 +25,125 @@
 package net.runelite.client.ui;
 
 import java.awt.Rectangle;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.time.Duration;
+import java.time.Instant;
 import javax.swing.JFrame;
 import lombok.Getter;
 
 public class ContainableFrame extends JFrame
 {
+	private static final int LARGE_WIDTH_THRESHOLD = 1600;
+	private static final int NEAR_EDGE_DISTANCE = 50;
+	private static final int PANEL_EXPANDED_WIDTH = PluginPanel.PANEL_WIDTH + PluginPanel.SCROLLBAR_WIDTH;
+
 	@Getter
 	private boolean containedInScreen;
+
+	private boolean expanded;
+	private Rectangle oldBounds;
+	private Instant ignoreNextBoundsNullUntil;
+
+	public ContainableFrame()
+	{
+		this.addComponentListener(new ComponentAdapter()
+		{
+			@Override
+			public void componentMoved(ComponentEvent e)
+			{
+				super.componentMoved(e);
+
+				if (ignoreNextBoundsNullUntil != null && Instant.now().compareTo(ignoreNextBoundsNullUntil) > 0)
+				{
+					oldBounds = null;
+				}
+			}
+
+			@Override
+			public void componentResized(ComponentEvent e)
+			{
+				super.componentResized(e);
+
+				if (ignoreNextBoundsNullUntil != null && Instant.now().compareTo(ignoreNextBoundsNullUntil) > 0)
+				{
+					oldBounds = null;
+				}
+			}
+		});
+	}
+
+	public void expand()
+	{
+		this.oldBounds = this.getBounds();
+		this.ignoreNextBoundsNullUntil = Instant.now().plus(Duration.ofMillis(300));
+
+		if ((this.getExtendedState() & MAXIMIZED_HORIZ) != 0)
+		{
+			// If the user is using a maximized window, they probably
+			// don't want it to expand through the edge
+		}
+		else if (this.getWidth() >= LARGE_WIDTH_THRESHOLD)
+		{
+			// If the user is using a big window, they probably don't
+			// mind if it gets a little smaller when expanding
+			// one of the panels
+		}
+		else
+		{
+			int newX = this.getX();
+			int newWidth = this.getWidth() + PANEL_EXPANDED_WIDTH;
+
+			Rectangle bounds = this.getGraphicsConfiguration().getBounds();
+			if (newX + newWidth > bounds.getX() + bounds.getWidth())
+			{
+				newX = Math.max((int)bounds.getX(),
+					(int)(bounds.getX() + bounds.getWidth()) -
+						this.getWidth() - PANEL_EXPANDED_WIDTH);
+			}
+
+			this.setBounds(newX, this.getY(), newWidth, this.getHeight());
+		}
+
+		this.expanded = true;
+	}
+
+	public void contract()
+	{
+		this.setBounds(getContractedBounds());
+		this.expanded = false;
+	}
+
+	public Rectangle getContractedBounds()
+	{
+		if (oldBounds != null)
+		{
+			return oldBounds;
+		}
+		if (expanded &&
+			(this.getExtendedState() & MAXIMIZED_HORIZ) == 0 &&
+			this.getWidth() < LARGE_WIDTH_THRESHOLD)
+		{
+			// If the user accidentally moved the window, oldBounds gets nulled,
+			// but we still want to shrink the window size for them
+
+			Rectangle screenBounds = this.getGraphicsConfiguration().getBounds();
+			if (Math.abs(this.getX() - screenBounds.getX()) > NEAR_EDGE_DISTANCE &&
+				Math.abs(this.getX() + this.getWidth() - screenBounds.getX() - screenBounds.getWidth()) <= NEAR_EDGE_DISTANCE)
+			{
+				// If the user has the window near the right edge, they probably
+				// want it to stay there instead of having it move to the left.
+				return new Rectangle(this.getX() + PANEL_EXPANDED_WIDTH, this.getY(),
+					this.getWidth() - PANEL_EXPANDED_WIDTH, this.getHeight());
+			}
+			else
+			{
+				return new Rectangle(this.getX(), this.getY(),
+					this.getWidth() - PANEL_EXPANDED_WIDTH, this.getHeight());
+			}
+		}
+		return this.getBounds();
+	}
 
 	public void setContainedInScreen(boolean value)
 	{

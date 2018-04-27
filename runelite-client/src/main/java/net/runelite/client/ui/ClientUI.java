@@ -566,12 +566,7 @@ public class ClientUI
 		}
 		else
 		{
-			if (SwingUtil.isInScreenBounds(
-				frame.getLocationOnScreen().y + frame.getWidth() + PANEL_EXPANDED_WIDTH,
-				frame.getLocationOnScreen().y))
-			{
-				frame.setSize(frame.getWidth() + PANEL_EXPANDED_WIDTH, frame.getHeight());
-			}
+			frame.expand();
 		}
 
 		pluginPanel = panel;
@@ -592,7 +587,6 @@ public class ClientUI
 
 	private void contract()
 	{
-		boolean wasMinimumWidth = frame.getWidth() == frame.getMinimumSize().width;
 		pluginPanel.onDeactivate();
 		navContainer.remove(0);
 		navContainer.setMinimumSize(new Dimension(0, 0));
@@ -601,17 +595,7 @@ public class ClientUI
 		giveClientFocus();
 		SwingUtil.revalidateMinimumSize(frame);
 
-		if ((frame.getExtendedState() & Frame.MAXIMIZED_BOTH) != Frame.MAXIMIZED_BOTH)
-		{
-			if (wasMinimumWidth)
-			{
-				frame.setSize(frame.getMinimumSize().width, frame.getHeight());
-			}
-			else if (frame.getWidth() < Toolkit.getDefaultToolkit().getScreenSize().getWidth())
-			{
-				frame.setSize(frame.getWidth() - PANEL_EXPANDED_WIDTH, frame.getHeight());
-			}
-		}
+		frame.contract();
 
 		pluginPanel = null;
 	}
@@ -638,7 +622,7 @@ public class ClientUI
 		else
 		{
 			configManager.unsetConfiguration(CONFIG_GROUP, CONFIG_CLIENT_MAXIMIZED);
-			configManager.setConfiguration(CONFIG_GROUP, CONFIG_CLIENT_BOUNDS, frame.getBounds());
+			configManager.setConfiguration(CONFIG_GROUP, CONFIG_CLIENT_BOUNDS, frame.getContractedBounds());
 		}
 	}
 }
