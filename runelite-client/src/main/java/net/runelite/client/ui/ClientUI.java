@@ -61,6 +61,7 @@ import net.runelite.api.events.ConfigChanged;
 import net.runelite.client.RuneLite;
 import net.runelite.client.RuneLiteProperties;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.config.ExpandResizeType;
 import net.runelite.client.config.RuneLiteConfig;
 import net.runelite.client.events.ClientUILoaded;
 import net.runelite.client.events.PluginToolbarButtonAdded;
@@ -87,6 +88,7 @@ public class ClientUI
 	private static final String CONFIG_CLIENT_MAXIMIZED = "clientMaximized";
 	private static final int CLIENT_WELL_HIDDEN_MARGIN = 160;
 	private static final int CLIENT_WELL_HIDDEN_MARGIN_TOP = 10;
+	private static final int SCREEN_EDGE_CLOSE_DISTANCE = 40;
 	public static final BufferedImage ICON;
 	private static final BufferedImage SIDEBAR_OPEN;
 	private static final BufferedImage SIDEBAR_CLOSE;
@@ -137,6 +139,7 @@ public class ClientUI
 	private PluginPanel lastPluginPanel;
 	private NavigationButton sidebarNavigationButton;
 	private JButton sidebarNavigationJButton;
+	private boolean expandedClientOppositeDirection;
 
 	@Inject
 	private ConfigManager configManager;
@@ -688,41 +691,92 @@ public class ClientUI
 		pluginPanel = null;
 	}
 
-	private void expandFrameBy(final int value)
+	private void expandFrameBy(int value)
 	{
 		if (isFullScreen())
 		{
 			return;
 		}
 
-		final int result = getValidatedResult(value);
-
-		if (result != -1)
+		boolean forcedWidthIncrease = false;
+		if (config.automaticResizeType() == ExpandResizeType.KEEP_WINDOW_SIZE)
 		{
-			frame.setSize(result, frame.getHeight());
-		}
-	}
-
-	private void contractFrameBy(final int value)
-	{
-		if (isFullScreen())
-		{
-			return;
+			int minimumWidth = frame.getLayout().minimumLayoutSize(frame).width;
+			int currentWidth = frame.getWidth();
+			if (minimumWidth > currentWidth)
+			{
+				forcedWidthIncrease = true;
+				value = minimumWidth - currentWidth;
+			}
 		}
 
-		final int result = getValidatedResult(-value);
-
-		if (result != -1)
+		if (forcedWidthIncrease || config.automaticResizeType() == ExpandResizeType.KEEP_GAME_SIZE)
 		{
-			frame.setSize(result, frame.getHeight());
-		}
-	}
+			int newWindowWidth = frame.getWidth() + value;
+			int newWindowX = frame.getX();
+			Rectangle screenBounds = frame.getGraphicsConfiguration().getBounds();
+			boolean isCloseToEdge = Math.abs((frame.getX() + frame.getWidth()) -
+				(screenBounds.getX() + screenBounds.getWidth())) <= SCREEN_EDGE_CLOSE_DISTANCE;
+			boolean wouldExpandThroughEdge = frame.getX() + newWindowWidth >
+				screenBounds.getX() + screenBounds.getWidth();
+			if (!isCloseToEdge && wouldExpandThroughEdge)
+			{
+				// Move the window to the edge
+				newWindowX = (int)(screenBounds.getX() + screenBounds.getWidth()) - frame.getWidth();
+			}
+			if (wouldExpandThroughEdge)
+			{
+				// Expand the window to the left as the user probably don't want the
+				// window to go through the screen
+				newWindowX -= value;
 
-	private int getValidatedResult(final int value)
-	{
+				expandedClientOppositeDirection = true;
+			}
+			frame.setBounds(newWindowX, frame.getY(), newWindowWidth, frame.getHeight());
+		}
+
 		revalidateMinimumSize();
-		final int result = frame.getWidth() + value;
-		return result <= frame.getMinimumSize().width ? result : -1;
+	}
+
+	private void contractFrameBy(int value)
+	{
+		if (isFullScreen())
+		{
+			return;
+		}
+
+		revalidateMinimumSize();
+
+		boolean forcedWidthDecrease = false;
+		if (config.automaticResizeType() == ExpandResizeType.KEEP_WINDOW_SIZE)
+		{
+			int minimumWidth = frame.getMinimumSize().width;
+			int currentWidth = frame.getWidth();
+			if (currentWidth - value <= minimumWidth)
+			{
+				forcedWidthDecrease = true;
+				value = currentWidth - minimumWidth;
+			}
+		}
+
+		if (forcedWidthDecrease || config.automaticResizeType() == ExpandResizeType.KEEP_GAME_SIZE)
+		{
+			int newWindowWidth = frame.getWidth() - value;
+			int newWindowX = frame.getX();
+			Rectangle screenBounds = frame.getGraphicsConfiguration().getBounds();
+			boolean wasCloseToRightEdge = Math.abs((frame.getX() + frame.getWidth()) -
+				(screenBounds.getX() + screenBounds.getWidth())) <= SCREEN_EDGE_CLOSE_DISTANCE;
+			boolean wasCloseToLeftEdge = Math.abs(frame.getX() - screenBounds.getX()) <= SCREEN_EDGE_CLOSE_DISTANCE;
+			if (wasCloseToRightEdge && (expandedClientOppositeDirection || !wasCloseToLeftEdge))
+			{
+				// Keep the distance to the right edge
+				newWindowX += value;
+			}
+
+			frame.setBounds(newWindowX, frame.getY(), newWindowWidth, frame.getHeight());
+		}
+
+		expandedClientOppositeDirection = false;
 	}
 
 	private void revalidateMinimumSize()
