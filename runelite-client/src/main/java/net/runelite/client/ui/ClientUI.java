@@ -357,6 +357,13 @@ public class ClientUI
 			SwingUtil.addGracefulExitCallback(frame,
 				() ->
 				{
+					// Update window bounds to save position with
+					if (sidebarOpen)
+					{
+						toggleSidebar();
+					}
+					contract();
+
 					saveClientBoundsConfig();
 					runelite.shutdown();
 				},
