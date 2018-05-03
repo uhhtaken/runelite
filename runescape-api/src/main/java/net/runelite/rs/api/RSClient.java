@@ -181,6 +181,9 @@ public interface RSClient extends RSGameEngine, Client
 	@Import("projectiles")
 	RSDeque getProjectilesDeque();
 
+	@Import("graphicsObjectDeque")
+	RSDeque getGraphicsObjectDeque();
+
 	@Import("username")
 	@Override
 	String getUsername();

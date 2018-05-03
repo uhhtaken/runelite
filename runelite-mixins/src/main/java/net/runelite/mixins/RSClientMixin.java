@@ -31,6 +31,7 @@ import net.runelite.api.ChatMessageType;
 import net.runelite.api.ClanMember;
 import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
+import net.runelite.api.GraphicsObject;
 import net.runelite.api.HintArrowType;
 import net.runelite.api.IndexedSprite;
 import net.runelite.api.InventoryID;
@@ -458,6 +459,22 @@ public abstract class RSClientMixin implements RSClient
 		}
 
 		return projectiles;
+	}
+
+	@Inject
+	@Override
+	public List<GraphicsObject> getGraphicsObjects()
+	{
+		List<GraphicsObject> graphicsObjects = new ArrayList<GraphicsObject>();
+		RSDeque graphicsObjectDeque = this.getGraphicsObjectDeque();
+		Node head = graphicsObjectDeque.getHead();
+
+		for (Node node = head.getNext(); node != head; node = node.getNext())
+		{
+			graphicsObjects.add((GraphicsObject)node);
+		}
+
+		return graphicsObjects;
 	}
 
 	@Inject

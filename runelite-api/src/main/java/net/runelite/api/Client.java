@@ -222,6 +222,8 @@ public interface Client extends GameEngine
 
 	List<Projectile> getProjectiles();
 
+	List<GraphicsObject> getGraphicsObjects();
+
 	/**
 	 * Play a sound effect at the player's current location. This is how UI,
 	 * and player-generated (e.g. mining, woodcutting) sound effects are
