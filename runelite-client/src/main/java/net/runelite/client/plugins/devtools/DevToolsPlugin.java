@@ -86,6 +86,7 @@ public class DevToolsPlugin extends Plugin
 	private boolean toggleMapSquares;
 	private boolean toggleValidMovement;
 	private boolean toggleLineOfSight;
+	private boolean toggleGraphicsObjects;
 
 	Widget currentWidget;
 	int itemIndex = -1;
@@ -235,6 +236,11 @@ public class DevToolsPlugin extends Plugin
 		toggleLineOfSight = !toggleLineOfSight;
 	}
 
+	void toggleGraphicsObjects()
+	{
+		toggleGraphicsObjects = !toggleGraphicsObjects;
+	}
+
 	boolean isTogglePlayers()
 	{
 		return togglePlayers;
@@ -303,5 +309,10 @@ public class DevToolsPlugin extends Plugin
 	boolean isToggleLineOfSight()
 	{
 		return toggleLineOfSight;
+	}
+
+	boolean isToggleGraphicsObjects()
+	{
+		return toggleGraphicsObjects;
 	}
 }
